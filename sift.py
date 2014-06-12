@@ -19,8 +19,21 @@ def prep_cascade(img, octave_size,octave_blur, scale_size,scale_ratio):
   img=imresize(img,invrat)
   stblur*=scale_ratio
  return retlist
+
 def calc_DoG(cascade):
  DoG=[]
  for octave in cascade:
    DoG.append((np.roll(octave,-1,0)-octave)[:-1])
  return DoG
+
+def calc_MinMax(cascade):
+ minmaxes=[]
+ for octave in cascade:
+  sh=octave.shape
+  ln=len(sh)-1
+  logical_and(
+  resmx=np.ones(sh,dtype=np.bool)
+  resmn=np.ones(sh,dtype=np.bool)
+  for axis in range(ln):
+   res=np.
+ return minmaxes
