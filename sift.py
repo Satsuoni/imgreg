@@ -31,9 +31,8 @@ def calc_MinMax(cascade):
  for octave in cascade:
   sh=octave.shape
   ln=len(sh)-1
-  logical_and(
+  #logical_and(
   resmx=np.ones(sh,dtype=np.bool)
   resmn=np.ones(sh,dtype=np.bool)
-  for axis in range(ln):
-   res=np.
+  #todo
  return minmaxes

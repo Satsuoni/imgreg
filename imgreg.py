@@ -5,6 +5,7 @@ from scipy.misc import *
 import sys
 import math
 from matplotlib import pyplot
+from scipy import linalg
 try:
     import scipy.ndimage.interpolation as ndii
 except ImportError:
@@ -142,6 +143,18 @@ def similarity(im0, im1):
     scale = (im1.shape[1] - 1) / (int(im1.shape[1] / scale) - 1)
     
     return im2, scale, angle, [-t0, -t1]
+
+def diadicBlur(img,lvl):
+    imc=img.astype(np.float64)
+    shft=2>>lvl
+    imx=np.roll(imc,shft,0)*0.25+np.roll(imc,-shft,0)*0.25+0.5*imc
+    imy=np.roll(imx,shft,1)*0.25+np.roll(imx,-shft,1)*0.25+0.5*imx
+    return imy
+def fullDiadicBlur(img,lvl):
+   for l in range(lvl):
+    img=diadicBlur(img,l)
+   return img
+
 def imshow(im0, im1, im2, im3=None, cmap=None, **kwargs):
     """Plot images using matplotlib."""
     if cmap is None:
@@ -165,16 +178,67 @@ if sal==2:
  bl=nd.filters.gaussian_filter1d(bl,5,1)
  imsave('blur.jpg',bl)
 
+def frev(grd,p,shp):
+  grd[0]-=p[0]
+  grd[1]-=p[1]
+  sn=np.sin(p[2])
+  cs=np.cos(p[2])
+  rd=np.array([grd[0]*cs-sn*grd[1],grd[0]*sn+grd[1]*cs])
+  return np.rint(rd).astype(np.int64)
 if sal==3:
- im0=imresize(nd.imread(sys.argv[1]),0.125)
- print sift.prep_cascade(im0,2,1.3,2,2)[0].shape
+ im0=np.mean(imresize(nd.imread(sys.argv[1]),0.5),-1)
  
+ im1=np.mean(imresize(nd.imread(sys.argv[2]),0.5),-1)#reference
+ #print sift.prep_cascade(im0,2,1.3,2,2)[0].shape
+ imb0=fullDiadicBlur(im0,5)
+ imb1=fullDiadicBlur(im1,5)
+ dl=8
+ #grid0=np.meshgrid(np.arange(0,im0.shape[0],dl),np.arange(0,im0.shape[1],dl),indexing='ij')
+ grid1=np.meshgrid(np.arange(0,im1.shape[0],dl),np.arange(0,im1.shape[1],dl),indexing='ij')
+ degrid=np.vstack(grid1).reshape(2,-1)
+ RL=im1[grid1]
+ RLX=np.roll(RL,-1,0)-RL
+ RLY=np.roll(RL,-1,1)-RL
+ J=np.array([RLX,RLY,(grid1[1])*RLX-(grid1[0])*RLY])
+ H=np.zeros([3,3])
+ for i in range(3):
+  for j in range (3):
+   H[i][j]=np.sum(J[i]*J[j])
+ adjm=np.dot(np.diag([dl,dl,1]),linalg.inv(H))
+ p0=np.array([0,0,0],dtype=np.float64)
+ print p0
+ print adjm
+ mxsme=-1
+ bestp=[0,0,0]
+ for _ in range(100):
+  wgrid=frev(grid1,p0,imb0.shape)
+  #print wgrid.shape
+  di=nd.interpolation.map_coordinates(imb0,wgrid,mode='reflect')
+  E=di-RL
+  #print di.shape
+  E=nd.filters.uniform_filter1d(E,2,0)
+  E=nd.filters.uniform_filter1d(E,2,1)
+  #pyplot.imshow(E)
+  #pyplot.show()
+  sme=np.sum(np.abs(E))
+  print sme
+  if mxsme==-1 or sme<mxsme:
+   mxsme=sme
+   bestp=p0
+   print p0
+  gz=np.array([0,0,0])
+  gm=E*J
+  g= np.sum(gm,(1,2))
+  p0+=np.dot(adjm,g)
+  print p0
+  #print gm.shape
+ imsave('blur.jpg',imb0[grid0])
  #pyplot.imshow(im0, interpolation='bilinear')
  #pyplot.show()
- im0r=np.sum(im0, axis=2)/3.
- im1=imresize(nd.imread(sys.argv[2]),0.125)
- im1r=np.sum(im1, axis=2)/3.
- im2, scale, angle, (t0, t1) = similarity(im0r, im1r)
- print "Scale: {0} Angle: {1} Translate: {2}, {3}".format(scale,angle,t0,t1)
- imshow(im0r, im1r, im2)
+ #im0r=np.sum(im0, axis=2)/3.
+ #im1=imresize(nd.imread(sys.argv[2]),0.125)
+ #im1r=np.sum(im1, axis=2)/3.
+ #im2, scale, angle, (t0, t1) = similarity(im0r, im1r)
+ #print "Scale: {0} Angle: {1} Translate: {2}, {3}".format(scale,angle,t0,t1)
+ #imshow(im0r, im1r, im2)
 
